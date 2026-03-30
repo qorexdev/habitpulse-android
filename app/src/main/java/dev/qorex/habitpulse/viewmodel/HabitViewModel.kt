@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import dev.qorex.habitpulse.HabitPulseApp
 import dev.qorex.habitpulse.data.*
+import dev.qorex.habitpulse.data.StreakCalculator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -105,7 +106,7 @@ class HabitViewModel(private val repository: HabitRepository, private val contex
             val habitsWithStatus = habits.map { habit ->
                 val completions = repository.getCompletionsForHabit(habit.id)
                 val completionDays = completions.map { it.date }.toSortedSet()
-                val (currentStreak, bestStreak) = calculateStreaks(completionDays, todayEpoch)
+                val (currentStreak, bestStreak) = StreakCalculator.calculateStreaks(completionDays, todayEpoch)
                 HabitWithStatus(
                     habit = habit,
                     isCompletedToday = habit.id in completedIds,
@@ -185,7 +186,7 @@ class HabitViewModel(private val repository: HabitRepository, private val contex
             val habitStats = habits.map { habit ->
                 val completions = repository.getCompletionsForHabit(habit.id)
                 val completionDays = completions.map { it.date }.toSortedSet()
-                val (currentStreak, bestStreak) = calculateStreaks(completionDays, todayEpoch)
+                val (currentStreak, bestStreak) = StreakCalculator.calculateStreaks(completionDays, todayEpoch)
                 if (bestStreak > bestStreakOverall) bestStreakOverall = bestStreak
 
                 val daysTracked = ((todayEpoch - habit.createdAt / 86400000) + 1).coerceAtLeast(1)
@@ -220,40 +221,6 @@ class HabitViewModel(private val repository: HabitRepository, private val contex
         }
     }
 
-    private fun calculateStreaks(
-        completionDays: Set<Long>,
-        todayEpoch: Long
-    ): Pair<Int, Int> {
-        if (completionDays.isEmpty()) return Pair(0, 0)
-
-        var currentStreak = 0
-        var checkDay = todayEpoch
-        while (checkDay in completionDays) {
-            currentStreak++
-            checkDay--
-        }
-        if (currentStreak == 0) {
-            checkDay = todayEpoch - 1
-            while (checkDay in completionDays) {
-                currentStreak++
-                checkDay--
-            }
-        }
-
-        val sorted = completionDays.sorted()
-        var bestStreak = 1
-        var streak = 1
-        for (i in 1 until sorted.size) {
-            if (sorted[i] == sorted[i - 1] + 1) {
-                streak++
-                if (streak > bestStreak) bestStreak = streak
-            } else {
-                streak = 1
-            }
-        }
-
-        return Pair(currentStreak, bestStreak)
-    }
 }
 
 class HabitViewModelFactory(
